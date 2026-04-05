@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from tasks import TASKS
@@ -38,8 +39,9 @@ def root():
 
 
 @app.post("/reset")
-def reset(request: ResetRequest):
-    observation = env.reset(task_id=request.task_id)
+def reset(request: Optional[ResetRequest] = None):
+    task_id = request.task_id if request is not None else 1
+    observation = env.reset(task_id=task_id)
     return {"observation": observation, "state": env.state()}
 
 
