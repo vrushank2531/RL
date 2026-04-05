@@ -1,0 +1,92 @@
+name: code-debugger-env
+version: "1.0.0"
+tags:
+  - openenv
+description: >
+  An RL environment where an agent is given broken Python code and must
+  submit a corrected version. Rewards are based on test case pass rate.
+
+endpoints:
+  base_url: "${PING_URL}"
+  reset:
+    method: POST
+    path: /reset
+    body:
+      task_id: 1
+  step:
+    method: POST
+    path: /step
+    body:
+      fixed_code: ""
+  state:
+    method: GET
+    path: /state
+
+action_space:
+  type: object
+  fields:
+    fixed_code:
+      type: string
+      description: Complete Python function that the agent believes fixes the bug.
+
+observation_space:
+  type: object
+  fields:
+    current_code:
+      type: string
+      description: The broken code the agent currently sees.
+    task_id:
+      type: integer
+      description: Which task is active (1–7).
+    task_description:
+      type: string
+      description: Natural language description of the bug to fix.
+    attempts_remaining:
+      type: integer
+      description: How many steps remain before the episode ends.
+    test_results:
+      type: array
+      items:
+        type: string
+      description: One result string per test case (PASS / FAIL / ERROR).
+
+reward:
+  type: float
+  range: [0.0, 1.0]
+  description: >
+    Normalised reward in [0.0, 1.0].
+    1.0 = all tests pass, 0.0 = no tests pass or crash, proportional for partial passes.
+
+tasks:
+  - id: 1
+    name: syntax-error
+    difficulty: easy
+    description: Fix the missing colon in the function definition.
+  - id: 2
+    name: logic-error
+    difficulty: easy
+    description: Fix the wrong comparison operator so the function returns the maximum.
+  - id: 3
+    name: bubble-sort-swap
+    difficulty: medium
+    description: Fix the broken swap so bubble sort correctly sorts the array.
+  - id: 4
+    name: fibonacci-base-cases
+    difficulty: medium
+    description: Fix the swapped base cases in the fibonacci function.
+  - id: 5
+    name: binary-search-bounds
+    difficulty: medium
+    description: Fix the off-by-one error in binary search high bound.
+  - id: 6
+    name: lcs-dp-transition
+    difficulty: hard
+    description: Fix the DP transition in longest common subsequence.
+  - id: 7
+    name: bracket-stack
+    difficulty: hard
+    description: Fix the stack logic in the bracket balance checker.
+
+episode:
+  max_steps: 5
+  termination: all_tests_pass or max_steps_reached
