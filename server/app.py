@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from server.tasks import TASKS
 from server.environment import CodeDebuggerEnv
-from server.models import Action, ResetRequest
+from server.models import Action, ResetRequest, Reward
 
 app = FastAPI(
     title="Code Debugger Environment",
@@ -20,7 +20,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-env = CodeDebuggerEnv()
+from typing import Dict
+from fastapi import HTTPException
+
+envs: Dict[str, CodeDebuggerEnv] = {}
 
 
 @app.get("/")
@@ -43,23 +46,37 @@ def root():
 @app.post("/reset")
 def reset(request: Optional[ResetRequest] = None):
     task_id = request.task_id if request is not None else 1
+    env = CodeDebuggerEnv()
     observation = env.reset(task_id=task_id)
+    envs[env.episode_id] = env
     return {"observation": observation, "state": env.state()}
 
 
 @app.post("/step")
 def step(request: Action):
+    env = envs.get(request.episode_id)
+    if not env:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    
     observation, reward, done = env.step(request.fixed_code)
+    state = env.state()
+    
+    if done:
+        envs.pop(request.episode_id, None)
+        
     return {
         "observation": observation,
         "reward":      reward,
         "done":        done,
-        "state":       env.state(),
+        "state":       state,
     }
 
 
 @app.get("/state")
-def state():
+def state(episode_id: str):
+    env = envs.get(episode_id)
+    if not env:
+        raise HTTPException(status_code=404, detail="Episode not found")
     return env.state()
 
 

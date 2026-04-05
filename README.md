@@ -29,6 +29,7 @@ The agent submits one action per step: a complete Python function as a string.
 ```json
 POST /step
 {
+  "episode_id": "f0fc0da7-...",
   "fixed_code": "def add_numbers(a, b):\n    return a + b"
 }
 ```
@@ -88,10 +89,10 @@ After every `reset` and `step` the server returns:
 
 | Outcome | Reward | Score |
 |---------|--------|-------|
-| All test cases pass | **+100** | 1.0 |
-| Some test cases pass | **score × 100** | 0.0 – 1.0 |
-| No test cases pass | **0** | 0.0 |
-| Code crashes / syntax error | **−20** | 0.0 |
+| All test cases pass | **1.0** | 1.0 |
+| Some test cases pass | **score** | 0.0 – 1.0 |
+| No test cases pass | **0.0** | 0.0 |
+| Code crashes / syntax error | **0.0** | 0.0 |
 
 `score = passed / total`. Episode ends when all tests pass or attempts run out.
 
@@ -149,12 +150,12 @@ client = CodeDebuggerClient("http://localhost:7860")
 # or on HF
 client = CodeDebuggerClient("https://vrushank2531-code-debugger-env.hf.space")
 
-obs = client.reset(task_id=1)
+obs, episode_id = client.reset(task_id=1)
 print(obs["current_code"])        # broken code
 print(obs["task_description"])    # what to fix
 
-obs, reward, done = client.step("def add_numbers(a, b):\n    return a + b")
-print(reward)   # 100.0
+obs, reward, done = client.step(episode_id, "def add_numbers(a, b):\n    return a + b")
+print(reward)   # 1.0
 print(done)     # True
 ```
 
@@ -164,8 +165,8 @@ print(done)     # True
 |--------|----------|------|----------|
 | GET | `/` | — | Environment info and full task list |
 | POST | `/reset` | `{"task_id": 1}` | `{observation, state}` |
-| POST | `/step` | `{"fixed_code": "..."}` | `{observation, reward, done, state}` |
-| GET | `/state` | — | `{episode_id, step_count, done, reward, score}` |
+| POST | `/step` | `{"episode_id": "...", "fixed_code": "..."}` | `{observation, reward, done, state}` |
+| GET | `/state` | `?episode_id=...` | `{episode_id, step_count, done, reward, score}` |
 
 ### Project structure
 

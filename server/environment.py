@@ -1,6 +1,7 @@
 import uuid
 from server.tasks import TASKS
 from server.grader import grade, calculate_reward
+from server.models import Reward
 
 
 class CodeDebuggerEnv:
@@ -53,11 +54,13 @@ class CodeDebuggerEnv:
         task = self.tasks[self.current_task_id]
         passed, total, self.test_results, crashed = grade(fixed_code, task)
         self.reward, self.score = calculate_reward(passed, total, crashed)
+        
+        reward_obj = Reward(reward=self.reward, score=self.score, passed=passed, total=total)
 
         if passed == total or self.attempts_remaining == 0:
             self.done = True
 
-        return self._observe(), self.reward, self.done
+        return self._observe(), reward_obj, self.done
 
     def state(self):
         """Return episode metadata."""

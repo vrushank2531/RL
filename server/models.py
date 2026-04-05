@@ -3,6 +3,7 @@ from typing import List, Optional
 
 
 class Action(BaseModel):
+    episode_id: str
     fixed_code: str
 
 
@@ -16,6 +17,13 @@ class Observation(BaseModel):
     task_description:   str
     attempts_remaining: int
     test_results:       List[str]
+
+
+class Reward(BaseModel):
+    reward: float
+    score:  float
+    passed: int
+    total:  int
 
 
 class State(BaseModel):

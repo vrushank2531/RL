@@ -107,17 +107,19 @@ def env_get_tasks() -> List[dict]:
     ]
 
 
-def env_reset(task_id: int) -> dict:
+def env_reset(task_id: int) -> tuple:
     r = requests.post(f"{SERVER_URL}/reset", json={"task_id": task_id}, timeout=30)
     r.raise_for_status()
-    return r.json()["observation"]
+    data = r.json()
+    return data["observation"], data["state"]["episode_id"]
 
 
-def env_step(fixed_code: str) -> tuple:
-    r = requests.post(f"{SERVER_URL}/step", json={"fixed_code": fixed_code}, timeout=30)
+def env_step(episode_id: str, fixed_code: str) -> tuple:
+    r = requests.post(f"{SERVER_URL}/step", json={"episode_id": episode_id, "fixed_code": fixed_code}, timeout=30)
     r.raise_for_status()
     data = r.json()
-    return data["observation"], float(data["reward"]), bool(data["done"])
+    reward_val = data["reward"]["reward"] if isinstance(data["reward"], dict) else data["reward"]
+    return data["observation"], float(reward_val), bool(data["done"])
 
 
 # ── LLM call (same client interface for both models) ─────────────────────────
@@ -174,7 +176,7 @@ def run_task(client: OpenAI, model_name: str, task: dict) -> dict:
     success     = False
 
     try:
-        obs = env_reset(task_id)
+        obs, episode_id = env_reset(task_id)
 
         for step in range(1, MAX_STEPS + 1):
             steps_taken = step
@@ -182,7 +184,7 @@ def run_task(client: OpenAI, model_name: str, task: dict) -> dict:
 
             try:
                 fixed_code        = get_fix(client, model_name, obs)
-                obs, reward, done = env_step(fixed_code)
+                obs, reward, done = env_step(episode_id, fixed_code)
             except Exception as exc:
                 error_msg  = str(exc)
                 done       = True
