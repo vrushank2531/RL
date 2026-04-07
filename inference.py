@@ -21,6 +21,8 @@ Stdout format (strictly followed — judges parse this):
 """
 
 import os
+import sys
+import time
 import textwrap
 from typing import List, Optional
 
@@ -40,7 +42,9 @@ NEMOTRON_MODEL   = os.getenv("MODEL_NAME",   "nvidia/Llama-3.1-Nemotron-Nano-8B-
 OPENAI_BASE_URL  = "https://api.openai.com/v1"
 OPENAI_MODEL     = "gpt-4o-mini"
 
-SERVER_URL       = os.getenv("SERVER_URL", "https://vrushank2531-code-debugger-env.hf.space")
+# OpenEnv sets PING_URL to the env container's base URL.
+# Fall back to SERVER_URL or localhost for local testing.
+SERVER_URL       = os.getenv("PING_URL") or os.getenv("SERVER_URL", "http://localhost:7860")
 
 BENCHMARK         = "code-debugger-env"
 MAX_STEPS         = 5
@@ -96,6 +100,21 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
 
 
 # ── Environment HTTP helpers ──────────────────────────────────────────────────
+
+def wait_for_server(url: str, retries: int = 10, delay: float = 3.0) -> bool:
+    """Wait until the env server is reachable. Returns True on success."""
+    for attempt in range(1, retries + 1):
+        try:
+            r = requests.get(f"{url}/", timeout=10)
+            if r.status_code < 500:
+                print(f"[DEBUG] Server reachable on attempt {attempt}", flush=True)
+                return True
+        except requests.ConnectionError:
+            pass
+        print(f"[DEBUG] Waiting for server (attempt {attempt}/{retries})...", flush=True)
+        time.sleep(delay)
+    return False
+
 
 def env_get_tasks() -> List[dict]:
     r = requests.get(f"{SERVER_URL}/", timeout=30)
@@ -234,7 +253,22 @@ def main() -> None:
     print(f"[DEBUG] Primary model:   {NEMOTRON_MODEL}", flush=True)
     print(f"[DEBUG] Secondary model: {OPENAI_MODEL}", flush=True)
 
-    tasks = env_get_tasks()
+    # Wait for the env container to become reachable
+    if not wait_for_server(SERVER_URL):
+        print("[ERROR] Environment server never became reachable. Exiting.", flush=True)
+        sys.exit(1)
+
+    try:
+        tasks = env_get_tasks()
+    except Exception as exc:
+        print(f"[ERROR] Failed to fetch tasks: {exc}", flush=True)
+        # Fallback: use the static task map so we can still attempt runs
+        tasks = [{"id": tid, "name": tname} for tid, tname in TASK_NAME_MAP.items()]
+        print(f"[DEBUG] Using fallback task list: {len(tasks)} tasks", flush=True)
+
+    if not tasks:
+        print("[ERROR] No tasks available. Exiting.", flush=True)
+        sys.exit(1)
 
     # ── Model 1: Nemotron Super via HF Inference Router ──────────────────────
     # Uses OpenAI-compatible client pointed at HF's router — same interface.
