@@ -104,6 +104,9 @@ def calculate_reward(passed: int, total: int, crashed: bool):
         raw = score * 100
 
     normalised = (raw - _REWARD_MIN) / (_REWARD_MAX - _REWARD_MIN)
-    normalised = max(0.0, min(1.0, normalised))   # clamp
+    # Ensure reward is strictly within (0.0, 1.0) for platform validation.
+    # Map [0.0, 1.0] -> [0.05, 0.95]
+    normalised = 0.05 + 0.90 * normalised
+    normalised = max(0.001, min(0.999, normalised))   # double-check clamp
 
     return normalised, score
